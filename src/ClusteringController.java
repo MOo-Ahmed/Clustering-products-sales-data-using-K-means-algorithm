@@ -26,15 +26,42 @@ public class ClusteringController {
 
         // First read the dataset and save it in arraylist
         readProductsFromFile(); // step 1
-        generateIteration1(); // step 2-6
+        ArrayList<Cluster> clusters = generateRandomCentroids();
+        clusters = generateNextIteration(1, clusters); // step 2-6
 
-        
+        boolean stop = false ;
+        for(int i = 2 ; !stop ; i++){
+            // The loop started from 2 because it's preparing iteration 2,3,...
+            
+            // Make backup of current iteration data
+            ArrayList<Cluster> oldClusters = new ArrayList<>();
+            for(int a = 0; a < K ; a++){
+                oldClusters.add(clusters.get(a).getCopy());
+            }
+            // Calculate the cluster means
+            Product[] clusterMeans = new Product[K];
+            for(int j = 0 ; j < K ; j++){
+                clusterMeans[j] = calculateClusterMean(clusters.get(j));
+                clusterMeans[j].productName = "centroid " + (j+1) ;
+                clusterMeans[j].CopyTo(clusters.get(j).centroid);
 
+                clusters.get(j).clusterMembers.clear();
+               
+                //System.out.println(clusterMeans[j].printMe());
+            }
+            
+            // Reassign the objects 
+            clusters = generateNextIteration(i , clusters);
+            writeIterationToFile(i, clusters);
+            
+            // Now compare the current iteration to the previous one
 
+            stop = areIterationsIdentical(clusters, oldClusters);
+            if(stop == true){
+                System.out.println("The algorithm stopped at iteration " + i);
+            }
 
-        
-        
-
+        }
     }
 
 
@@ -56,40 +83,38 @@ public class ClusteringController {
         file.close();
     }
 
-    static ArrayList<Integer> generateRandomCentroids(){
+    static ArrayList<Cluster> generateRandomCentroids(){
         ArrayList<Integer> result = new ArrayList<Integer>();
         int max = 200 , min = 1;
-        for(int i = 0 ;  i < K ; i++){
+        for(;  result.size() < K ;){
             int random_int = (int)(Math.random() * (max - min + 1) + min);
-            result.add(random_int) ;
+            if(result.indexOf(random_int) == -1)    result.add(random_int) ;
         }
-        return result;
+        // Make K clusters, add these centroids to them
+        ArrayList<Cluster> clusters = new ArrayList<>();
+        for(int i = 0 ; i < K ; i++){
+            clusters.add(new Cluster());
+            clusters.get(i).setClusterCentroid(productsData.get(result.get(i) - 1));
+        }
+        
+        return clusters;
     }
 
-    private static int getManhattanDistance(Product product, Product product2) {
-        int distance = 0 ;
+    private static double getManhattanDistance(Product product, Product product2) {
+        double distance = 0 ;
         for(int i = 0 ; i < 31 ; i++){
-            distance += (int) Math.abs(product.salesQuantities[i] - product2.salesQuantities[i]);
+            distance += Math.abs(product.salesQuantities[i] - product2.salesQuantities[i]);
         }
         return distance ;
     }
 
-    private static void generateIteration1() throws IOException {
-        ArrayList<Integer> initialCentroids = generateRandomCentroids();
-        ArrayList<Cluster> clusters = new ArrayList<>();
-
-        // Make K clusters, add these centroids to them
-        for(int i = 0 ; i < K ; i++){
-            clusters.add(new Cluster());
-            clusters.get(i).setClusterCentroid(productsData.get(initialCentroids.get(i) - 1));
-        }
-
+    private static ArrayList<Cluster> generateNextIteration (int iterationNumber, ArrayList<Cluster> clusters) throws IOException {
         // Loop through all products and assign them to nearest centroid
         for(int i = 0 ; i < 200; i++){
-            int minimumDistance = Integer.MAX_VALUE ;
+            double minimumDistance = Integer.MAX_VALUE ;
             int clusterIndex = -1 ;
             for(int j = 0 ; j < K ; j++){
-                int ManhattanDistance = getManhattanDistance(productsData.get(initialCentroids.get(j) - 1) , productsData.get(i)) ;
+                double ManhattanDistance = getManhattanDistance(clusters.get(j).centroid , productsData.get(i)) ;
                 if(ManhattanDistance < minimumDistance){
                     minimumDistance = ManhattanDistance ;
                     clusterIndex = j ;
@@ -98,24 +123,75 @@ public class ClusteringController {
             // Add the product to the closest cluster, even if identical to the centroid
             clusters.get(clusterIndex).clusterMembers.add(productsData.get(i));
         }
-        writeIterationToFile(1, clusters);
-
+        writeIterationToFile(iterationNumber, clusters);
+        return clusters;
     }
 
     private static void writeIterationToFile(int iterationNumber, ArrayList<Cluster> clusters) throws IOException {
         /* Till here you prepared iteration 1, you should write it to a file
-           One way is to make 2 files for each iteration :
-                1- Containing centroids data (cent1:13,3,4,56,6,....)
-                2- Containing clusters data (clus1:p1,p2,p3,....)
-           
-           Another way is like this (cent1:13,3,4,56,6|p1,p2,p3)
+           like this (cent1:13,3,4,56,6|p1,p2,p3)
         */
-        BufferedWriter bw = new BufferedWriter(new FileWriter("iterations/i" + iterationNumber  + ".txt")) ;
+        BufferedWriter bw = new BufferedWriter(new FileWriter("iterations/iteration" + iterationNumber  + ".txt")) ;
         for(int i = 0 ; i < K ; i++){
             bw.write(clusters.get(i).toString());
-            System.out.println(clusters.get(i).toString());
         }
         bw.close();
+        writeIterationSummary(iterationNumber, clusters);
+    }
+
+    private static Product calculateClusterMean(Cluster cluster){
+        Product mean = new Product();
+        
+        int n = cluster.clusterMembers.size() ;
+        //System.out.println(n);
+        for(int i = 0 ; i < n ; i++){
+            for(int j = 0 ; j < 31 ; j++){
+                //System.out.println("Got here");
+                if(i == 0)    mean.salesQuantities[j] = 0 ;
+                double value = (cluster.clusterMembers.get(i).salesQuantities[j] * 1.0 / n) ;
+                
+                mean.salesQuantities[j] +=  value;
+            }
+        }
+        return mean ;
+    }
+
+    private static void writeIterationSummary(int iterationNumber, ArrayList<Cluster> clusters) throws IOException {
+        BufferedWriter bw = new BufferedWriter(new FileWriter("iterations/i" + iterationNumber  + ".txt")) ;
+        for(int i = 0 ; i < K ; i++){
+            String output = "Cluster " + (i+1) + " / " + clusters.get(i).centroid.productName + " / " ;
+            for(int j = 0 ; j < clusters.get(i).clusterMembers.size() ; j++)  {
+                output += clusters.get(i).clusterMembers.get(j).productName ;
+                if((j+1) != clusters.get(i).clusterMembers.size()){
+                    output += " , " ;
+                }
+            }
+            bw.write(output + "\n");
+        }
+        bw.close();
+    }
+
+    private static boolean areIterationsIdentical(ArrayList<Cluster> i1, ArrayList<Cluster> i2){
+        for(int i = 0 ; i < K ; i++){
+            ArrayList<String> C1 = new ArrayList<>(), C2 = new ArrayList<>();
+            for(int j = 0 ; j < i1.get(i).clusterMembers.size() ; j++){
+                C1.add(i1.get(i).clusterMembers.get(j).productName) ;
+            }
+            for(int j = 0 ; j < i2.get(i).clusterMembers.size() ; j++){
+                C2.add(i2.get(i).clusterMembers.get(j).productName) ;
+            }
+            if(C1.containsAll(C2) && C2.containsAll(C1) && C1.size() == C2.size()){
+                System.out.println(C1 + "\n" + C2);
+                //System.out.println(i);
+                C1.clear();
+                C2.clear();
+            }
+            else {
+                System.out.println(C1 + "\n" + C2);
+                return false ;
+            }
+        }
+        return true ;
     }
 
 }

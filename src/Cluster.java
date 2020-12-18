@@ -27,6 +27,19 @@ public class Cluster {
         this.clusterMembers.addAll(members);
     }
 
+    public Cluster getCopy(){
+        Cluster c ;
+        Product centroid2 = new Product();
+        this.centroid.CopyTo(centroid2);
+        ArrayList<Product> members = new ArrayList();
+        for(int i = 0 ; i < this.clusterMembers.size(); i++){
+            members.add(new Product());
+            clusterMembers.get(i).CopyTo(members.get(i));
+        }
+        c = new Cluster(centroid2, members);
+        return c ;
+    }
+
     @Override
     public String toString(){
         String output = this.centroid.toString() + '|';
