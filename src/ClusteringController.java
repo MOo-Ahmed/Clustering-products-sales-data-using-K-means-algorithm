@@ -62,6 +62,7 @@ public class ClusteringController {
             }
 
         }
+        showOutliers(clusters);
     }
 
 
@@ -181,17 +182,52 @@ public class ClusteringController {
                 C2.add(i2.get(i).clusterMembers.get(j).productName) ;
             }
             if(C1.containsAll(C2) && C2.containsAll(C1) && C1.size() == C2.size()){
-                System.out.println(C1 + "\n" + C2);
-                //System.out.println(i);
                 C1.clear();
                 C2.clear();
             }
             else {
-                System.out.println(C1 + "\n" + C2);
                 return false ;
             }
         }
         return true ;
     }
 
+    private static void showOutliers(ArrayList<Cluster> clusters){
+        int secondSmallestIndex = 0 , secondSmallestSize = Integer.MAX_VALUE;
+        int SmallestClusterIndex = 0 , smallestSize = Integer.MAX_VALUE;
+        for(int i = 0 ; i < clusters.size() ; i++){
+            if(clusters.get(i).clusterMembers.size() < smallestSize){
+                smallestSize = clusters.get(i).clusterMembers.size();
+                SmallestClusterIndex = i ;
+            }
+            else if(clusters.get(i).clusterMembers.size() < secondSmallestSize ){
+                secondSmallestSize = clusters.get(i).clusterMembers.size() ;
+                secondSmallestIndex = i ;
+            }
+        }
+        String output = "\nThe outliers can be detected in clusters " 
+            + (SmallestClusterIndex+1)  + " and " + (secondSmallestIndex+1);
+        System.out.println(output);
+        printOutliers(clusters.get(SmallestClusterIndex).clusterMembers, SmallestClusterIndex);
+        printOutliers(clusters.get(secondSmallestIndex).clusterMembers, secondSmallestIndex);
+        
+    }
+
+    private static void printOutliers(ArrayList<Product> members, int idx){
+        String output = "\nOutliers in cluster " + (idx+1) + " are : \n" ;
+        for(int j = 0 ; j < members.size() ; j++)  {
+            output += members.get(j).productName ;
+            if((j+1) != members.size()){
+                output += "\t" ;
+            }
+        }
+        output += "\n" ;
+        for(int j = 0 ; j < members.size() ; j++)  {
+            output += members.get(j).printMe() ;
+            if((j+1) != members.size()){
+                output += "\n" ;
+            }
+        }
+        System.out.println(output + "\n-----------------------------------------------\n");
+    }
 }

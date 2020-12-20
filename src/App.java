@@ -6,10 +6,5 @@ public class App {
         System.out.print("Enter k : ");
         int k = Integer.parseInt(sc.nextLine());
         ClusteringController.performClustering(k);
-
-        /*
-        • You should detect outlier data (if exists).
-        • The final output should show k lists of products and show outlier product’s records.
-        */
     }
 }
